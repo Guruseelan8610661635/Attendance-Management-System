@@ -1,0 +1,15 @@
+# Ignore backend build output
+attendance-backend/target/
+
+# Ignore backend secrets
+attendance-backend/src/main/resources/application.properties
+attendance-backend/src/main/resources/application.yml
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
