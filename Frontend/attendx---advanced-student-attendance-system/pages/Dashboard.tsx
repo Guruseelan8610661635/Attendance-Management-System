@@ -29,9 +29,11 @@ import {
   MOCK_STAFF
 } from '../constants';
 import { UserRole, ClassOverview, Student, User } from '../types';
+import { getCurrentRole } from '../services/roles';
 
 const Dashboard: React.FC = () => {
-  const role = (window as any).currentUserRole || UserRole.ADMIN;
+  // Use getCurrentRole from service for reliability across refreshes
+  const role = getCurrentRole() || (window as any).currentUserRole || UserRole.STUDENT;
   const user = (window as any).currentUser as User;
   const navigate = useNavigate();
   

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
-import Dashboard from './pages/Dashboard';
+import DashboardRouter from './pages/DashboardRouter';
 import StudentManagement from './pages/StudentManagement';
 import AttendanceMarking from './pages/AttendanceMarking';
 import Reports from './pages/Reports';
@@ -12,11 +12,50 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { User, UserRole } from './types';
 import { MOCK_ADMIN, MOCK_STAFF } from './constants';
+import { getCurrentRole } from './services/roles';
 
 const AppContent: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const location = useLocation();
   const isLoginPage = location.pathname === '/login';
+
+  // On mount, check if user is already logged in via localStorage
+  useEffect(() => {
+    const initializeAuth = () => {
+      try {
+        const userData = localStorage.getItem('user_data');
+        const token = localStorage.getItem('jwt_token');
+        
+        if (userData && token) {
+          const parsedUser = JSON.parse(userData);
+          const role = getCurrentRole();
+          
+          if (role) {
+            // Reconstruct user object from localStorage
+            const reconstructedUser: User = {
+              id: parsedUser.userId?.toString() || '1',
+              name: parsedUser.name || parsedUser.username,
+              email: parsedUser.email || `${parsedUser.username}@attendx.edu`,
+              role: role,
+              avatar: `https://picsum.photos/seed/${parsedUser.username}/200`
+            };
+            
+            setUser(reconstructedUser);
+            (window as any).currentUserRole = role;
+            (window as any).currentUser = reconstructedUser;
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        // Clear invalid data
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('refresh_token');
+      }
+    };
+
+    initializeAuth();
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -26,19 +65,35 @@ const AppContent: React.FC = () => {
   }, [user]);
 
   const login = (role: UserRole, email?: string) => {
-    if (role === UserRole.ADMIN) {
-      setUser(MOCK_ADMIN);
-    } else if (role === UserRole.STAFF) {
-      const staffUser = MOCK_STAFF.find(s => s.email === email) || MOCK_STAFF[0];
-      setUser(staffUser);
+    // Get the actual user data from localStorage (already stored by authService)
+    const userData = localStorage.getItem('user_data');
+    
+    if (userData) {
+      const parsedUser = JSON.parse(userData);
+      const authenticatedUser: User = {
+        id: parsedUser.userId?.toString() || '1',
+        name: parsedUser.name || parsedUser.username,
+        email: parsedUser.email || email || `${parsedUser.username}@attendx.edu`,
+        role: role,
+        avatar: `https://picsum.photos/seed/${parsedUser.username}/200`
+      };
+      setUser(authenticatedUser);
     } else {
-      setUser({ 
-        id: 's_1',
-        name: 'Alex Rivera',
-        email: 'alex@attendx.edu',
-        role: UserRole.STUDENT,
-        avatar: 'https://picsum.photos/seed/alex/200'
-      });
+      // Fallback to mock data if localStorage is not available (shouldn't happen)
+      if (role === UserRole.ADMIN) {
+        setUser(MOCK_ADMIN);
+      } else if (role === UserRole.STAFF) {
+        const staffUser = MOCK_STAFF.find(s => s.email === email) || MOCK_STAFF[0];
+        setUser(staffUser);
+      } else {
+        setUser({ 
+          id: 's_1',
+          name: 'Alex Rivera',
+          email: 'alex@attendx.edu',
+          role: UserRole.STUDENT,
+          avatar: 'https://picsum.photos/seed/alex/200'
+        });
+      }
     }
   };
 
@@ -46,6 +101,10 @@ const AppContent: React.FC = () => {
     setUser(null);
     (window as any).currentUserRole = undefined;
     (window as any).currentUser = undefined;
+    // Clear localStorage
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_data');
   };
 
   if (!user && !isLoginPage) {
@@ -66,7 +125,7 @@ const AppContent: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <Routes>
             <Route path="/login" element={<LoginPage onLogin={login} />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={<DashboardRouter />} />
             <Route path="/students" element={<StudentManagement userRole={user?.role} />} />
             <Route path="/attendance" element={<AttendanceMarking />} />
             <Route path="/reports" element={<Reports />} />
